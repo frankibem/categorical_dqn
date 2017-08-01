@@ -5,13 +5,21 @@ Attempt at CNTK implementation of Categorical DQN from 'A distributional Perspec
 1. Python 3
 2. CNTK v2
 
-## Status
-Work in progress.
-
-Current experiments show **decreasing** rewards with time :cry:. Help proofreading and hunting down bugs will be appreciated.
-
-To run the CartPole experiment from OpenAI Gym, use:
-
-```
+### CartPole-v0
+To train a model for CartPole from OpenAI Gym, use:
+```bazaar
 python -m experiments.train_cartpole
 ```
+
+To watch the trained model in action, use:
+
+```
+python -m experiments.watch_cartpole
+```
+Here are the results from a sample run:
+![cartpole rewards](images/cartpole_rewards.png)
+![cartpole losses](images/cartpole_loss.png)
+
+
+### Atari
+Work in progress

@@ -1,7 +1,9 @@
 import gym
+import json
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
 import cntk as C
 from cntk.layers import Sequential, Dense
 
@@ -11,25 +13,25 @@ from common.replay_buffer import ReplayBuffer
 
 
 def main():
+    with open('cartpole.json', encoding='utf-8') as config_file:
+        config = json.load(config_file)
+
     env = gym.make('CartPole-v0')
     state_shape = env.observation_space.shape
     action_count = env.action_space.n
 
-    n = 9
-    vmin, vmax = -4, 4
+    layers = []
+    for layer in config['layers']:
+        layers.append(Dense(layer, activation=C.relu))
 
-    model_func = Sequential([
-        Dense(16, activation=C.relu),
-        Dense(16, activation=C.relu),
-        Dense((action_count, n))
-    ])
+    layers.append(Dense((action_count, config['n']), activation=None))
+    model_func = Sequential(layers)
 
-    buffer_capacity = 128
-    replay_buffer = ReplayBuffer(buffer_capacity)
+    replay_buffer = ReplayBuffer(config['buffer_capacity'])
 
     # Fill the buffer with randomly generated samples
     state = env.reset()
-    for i in range(buffer_capacity):
+    for i in range(config['buffer_capacity']):
         action = env.action_space.sample()
         post_state, reward, done, _ = env.step(action)
         replay_buffer.add(state.astype(np.float32), action, reward, post_state.astype(np.float32), float(done))
@@ -37,17 +39,15 @@ def main():
         if done:
             state = env.reset()
 
-    minibatch_size = 32
-    max_episodes = 10000
-    update_freq = 40
-    log_freq = 100
-    reward_buffer = np.zeros(max_episodes, dtype=np.float32)
+    reward_buffer = np.zeros(config['max_episodes'], dtype=np.float32)
     losses = []
 
-    epsilon_schedule = LinearSchedule(1, 0.05, max_episodes)
-    agent = CategoricalAgent(state_shape, action_count, model_func, vmin, vmax, n, lr=0.000025)
+    epsilon_schedule = LinearSchedule(1, 0.01, config['max_episodes'])
+    agent = CategoricalAgent(state_shape, action_count, model_func, config['vmin'], config['vmax'], config['n'],
+                             lr=config['lr'], gamma=config['gamma'])
 
-    for episode in range(1, max_episodes + 1):
+    log_freq = config['log_freq']
+    for episode in range(1, config['max_episodes'] + 1):
         state = env.reset().astype(np.float32)
         done = False
 
@@ -59,12 +59,14 @@ def main():
             replay_buffer.add(state, action, reward, post_state, float(done))
             reward_buffer[episode - 1] += reward
 
-        minibatch = replay_buffer.sample(minibatch_size)
+            state = post_state
+
+        minibatch = replay_buffer.sample(config['minibatch_size'])
         agent.train(*minibatch)
         loss = agent.trainer.previous_minibatch_loss_average
         losses.append(loss)
 
-        if episode % update_freq == 0:
+        if episode % config['target_update_freq'] == 0:
             agent.update_target()
 
         if episode % log_freq == 0:
@@ -73,14 +75,17 @@ def main():
 
     agent.model.save('cartpole.cdqn')
 
+    sns.set_style('dark')
     pd.Series(reward_buffer).rolling(window=log_freq).mean().plot()
     plt.xlabel('Episode')
     plt.ylabel('Reward')
+    plt.title('CartPole - Reward with Time')
     plt.show()
 
     plt.plot(np.arange(len(losses)), losses)
     plt.xlabel('Episode')
     plt.ylabel('Loss')
+    plt.title('CartPole - Loss with Time')
     plt.show()
 
 
