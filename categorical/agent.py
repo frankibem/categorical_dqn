@@ -1,9 +1,11 @@
 import numpy as np
 import cntk as C
+from cntk.logging import TensorBoardProgressWriter
 
 
 class CategoricalAgent:
-    def __init__(self, state_shape, action_count, model_func, vmin, vmax, n, gamma=0.99, lr=0.00025, mm=0.95):
+    def __init__(self, state_shape, action_count, model_func, vmin, vmax, n,
+                 gamma=0.99, lr=0.00025, mm=0.95, use_tensorboard=False):
         """
         Creates a new agent that learns using Categorical DQN as described in
         "A Distributional Perspective on Reinforcement Learning"
@@ -46,7 +48,13 @@ class CategoricalAgent:
         mom_schedule = C.momentum_schedule(self.momentum)
         vm_schedule = C.momentum_schedule(0.999)
         learner = C.adam(self.raw.parameters, lr_schedule, mom_schedule, variance_momentum=vm_schedule)
-        self.trainer = C.Trainer(self.raw, (loss, None), [learner])
+
+        if use_tensorboard:
+            self.writer = TensorBoardProgressWriter(log_dir='metrics', model=self.model)
+        else:
+            self.writer = None
+
+        self.trainer = C.Trainer(self.raw, (loss, None), [learner], self.writer)
 
         # Create target network as copy of online network
         self.target_model = None
@@ -116,3 +124,9 @@ class CategoricalAgent:
 
         # Train used computed targets
         self.trainer.train_minibatch({self.state_var: states, self.action_return_dist: M})
+
+    def checkpoint(self, filename):
+        self.trainer.save_checkpoint(filename)
+
+    def save_model(self, filename):
+        self.model.save(filename)

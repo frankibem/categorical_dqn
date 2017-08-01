@@ -219,3 +219,20 @@ def wrap_deepmind(env, episode_life=True, clip_rewards=True):
     if clip_rewards:
         env = ClipRewardEnv(env)
     return env
+
+
+def wrap_env(env):
+    """
+    Wraps the Gym environment such that the end of a life is considered the end
+    of an episode (EpisodicLifeEnv), every 4th frame is returned (MaxAndSkipFrame),
+    the frames are grayscaled and resized to 84x84 (WarpFrame), pixels are normalized,
+    frames are buffered and stacked and rewards are clipped to [-1, 1]
+    :return: The wrapped environment
+    """
+    env = EpisodicLifeEnv(env)
+    env = MaxAndSkipEnv(env, skip=4)
+    env = WarpFrame(env)
+    env = NormalizedEnv(env)
+    env = FrameStack(env, 4)
+    env = ClipRewardEnv(env)
+    return env
