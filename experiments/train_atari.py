@@ -69,11 +69,6 @@ def main(env_name='KungFuMasterNoFrameskip-v0',
             obs = obs_
             rewards += reward
 
-            if done:
-                steps = t - steps + 1
-                episode += 1
-                obs = env.reset()
-
             if t > train_after and (t % train_freq) == 0:
                 # Minimize error in projected Bellman update on a batch sampled from replay buffer
                 experience = replay_buffer.sample(batch_size)
@@ -83,17 +78,23 @@ def main(env_name='KungFuMasterNoFrameskip-v0',
             if t > train_after and (t % target_update_freq) == 0:
                 agent.update_target()
 
-            if done and (episode % log_freq) == 0:
-                logger.write_value('rewards', rewards, episode)
-                logger.write_value('steps', steps, episode)
-                logger.write_value('epsilon', epsilon_schedule.value(t), episode)
-                logger.flush()
+            if t > train_after and (t % checkpoint_freq) == 0:
+                agent.checkpoint('checkpoints/model_{}.chkpt'.format(t))
+
+            if done:
+                episode += 1
+                obs = env.reset()
+
+                if episode % log_freq == 0:
+                    steps = t - steps + 1
+
+                    logger.write_value('rewards', rewards, episode)
+                    logger.write_value('steps', steps, episode)
+                    logger.write_value('epsilon', epsilon_schedule.value(t), episode)
+                    logger.flush()
 
                 rewards = 0
                 steps = t
-
-            if t > train_after and (t % checkpoint_freq) == 0:
-                agent.checkpoint('checkpoints/model_{}.chkpt'.format(t))
 
     finally:
         agent.save_model('checkpoints/{}.cdqn'.format(env_name))
