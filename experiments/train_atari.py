@@ -1,5 +1,6 @@
 import os
 import gym
+import numpy as np
 import cntk as C
 from cntk.layers import Sequential, Convolution2D, Dense
 
@@ -12,12 +13,12 @@ from categorical.agent import CategoricalAgent
 def main(env_name='KungFuMasterNoFrameskip-v0',
          train_freq=4,
          target_update_freq=10000,
-         checkpoint_freq=20000,
+         checkpoint_freq=100000,
          log_freq=1,
          batch_size=32,
-         train_after=64,
+         train_after=200000,
          max_timesteps=5000000,
-         buffer_size=500000,
+         buffer_size=50000,
          vmin=-10,
          vmax=10,
          n=51,
@@ -36,8 +37,8 @@ def main(env_name='KungFuMasterNoFrameskip-v0',
             Convolution2D((8, 8), 32, strides=4, name='conv1'),
             Convolution2D((4, 4), 64, strides=2, name='conv2'),
             Convolution2D((3, 3), 64, strides=1, name='conv3'),
-            Dense(256, init=C.he_uniform(scale=0.01), name='dense1'),
-            Dense((action_count, n), activation=None, init=C.he_uniform(scale=0.01), name='out')
+            Dense(512, name='dense1'),
+            Dense((action_count, n), activation=None, name='out')
         ])
 
     agent = CategoricalAgent(state_dim, action_count, model_func, vmin, vmax, n, gamma,
@@ -55,7 +56,10 @@ def main(env_name='KungFuMasterNoFrameskip-v0',
 
         for t in range(max_timesteps):
             # Take action
-            action = agent.act(obs, epsilon=epsilon_schedule.value(t))
+            if t > train_after:
+                action = agent.act(obs, epsilon=epsilon_schedule.value(t))
+            else:
+                action = np.random.choice(action_count)
             obs_, reward, done, _ = env.step(action)
 
             # Store transition in replay buffer
@@ -88,17 +92,11 @@ def main(env_name='KungFuMasterNoFrameskip-v0',
                 steps = t
 
             if t > train_after and (t % checkpoint_freq) == 0:
-                agent.checkpoint('model_{}.chkpt'.format(t))
+                agent.checkpoint('checkpoints/model_{}.chkpt'.format(t))
 
     finally:
-        agent.save_model('{}.cdqn'.format(env_name))
+        agent.save_model('checkpoints/{}.cdqn'.format(env_name))
 
 
 if __name__ == '__main__':
-    if 'TEST_DEVICE' in os.environ:
-        if os.environ['TEST_DEVICE'] == 'cpu':
-            C.device.try_set_default_device(C.device.cpu())
-        else:
-            C.device.try_set_default_device(C.device.gpu(0))
-
     main()

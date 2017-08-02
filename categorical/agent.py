@@ -44,7 +44,7 @@ class CategoricalAgent:
 
         # Adam-based SGD with cross-entropy loss
         loss = C.cross_entropy_with_softmax(self.raw, self.action_return_dist, axis=1, name='loss')
-        lr_schedule = C.learning_rate_schedule(self.learning_rate, C.UnitType.minibatch)
+        lr_schedule = C.learning_rate_schedule(self.learning_rate, C.UnitType.sample)
         mom_schedule = C.momentum_schedule(self.momentum)
         vm_schedule = C.momentum_schedule(0.999)
         learner = C.adam(self.raw.parameters, lr_schedule, mom_schedule, variance_momentum=vm_schedule)
@@ -73,7 +73,7 @@ class CategoricalAgent:
         :param epsilon: Value in range [0, 1].
         :return: Next action to execute
         """
-        if np.random.randn(1) < epsilon:
+        if np.random.uniform(0, 1) < epsilon:
             # Take random action (explore)
             return np.random.choice(self.action_count)
         else:
