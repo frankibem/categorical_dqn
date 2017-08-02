@@ -23,7 +23,8 @@ def main(env_name='KungFuMasterNoFrameskip-v0',
          vmax=10,
          n=51,
          gamma=0.99,
-         final_eps=0.02,
+         final_eps=0.1,
+         final_eps_update=1000000,
          learning_rate=0.00025,
          momentum=0.95):
     env = gym.make(env_name)
@@ -45,7 +46,7 @@ def main(env_name='KungFuMasterNoFrameskip-v0',
                              lr=learning_rate, mm=momentum, use_tensorboard=True)
     logger = agent.writer
 
-    epsilon_schedule = LinearSchedule(1.0, final_eps, max_timesteps)
+    epsilon_schedule = LinearSchedule(1.0, final_eps, final_eps_update)
     replay_buffer = ReplayBuffer(buffer_size)
 
     try:
@@ -77,6 +78,7 @@ def main(env_name='KungFuMasterNoFrameskip-v0',
                 # Minimize error in projected Bellman update on a batch sampled from replay buffer
                 experience = replay_buffer.sample(batch_size)
                 agent.train(*experience)  # experience is (s, a, r, s_, t) tuple
+                logger.write_value('loss', agent.trainer.previous_minibatch_loss_average, t)
 
             if t > train_after and (t % target_update_freq) == 0:
                 agent.update_target()
@@ -85,7 +87,6 @@ def main(env_name='KungFuMasterNoFrameskip-v0',
                 logger.write_value('rewards', rewards, episode)
                 logger.write_value('steps', steps, episode)
                 logger.write_value('epsilon', epsilon_schedule.value(t), episode)
-                agent.trainer.summarize_training_progress()
                 logger.flush()
 
                 rewards = 0
