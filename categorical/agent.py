@@ -108,8 +108,9 @@ class CategoricalAgent:
         Tz = np.repeat(rewards.reshape(-1, 1), self.n, axis=1) + np.dot(self.gamma * (1.0 - terminals).reshape(-1, 1),
                                                                         self.z.reshape(1, -1))
 
+        # TODO: Verify correctnes
         # Clipping to endpoints like described in paper causes probabilities to disappear (when B = L = U).
-        # To avoid this, we shift the end points to ensure that L and U are not both equal to B
+        # To avoid this, I shift the end points to ensure that L and U are not both equal to B
         Tz = np.clip(Tz, self.vmin + 0.01, self.vmax - 0.01)
 
         B = (Tz - self.vmin) / self.dz
@@ -122,7 +123,7 @@ class CategoricalAgent:
                 M[i, A_[i], L[i, j]] += P[i, A_[i], j] * (U[i, j] - B[i, j])
                 M[i, A_[i], U[i, j]] += P[i, A_[i], j] * (B[i, j] - L[i, j])
 
-        # Train used computed targets
+        # Train using computed targets
         self.trainer.train_minibatch({self.state_var: states, self.action_return_dist: M})
 
     def checkpoint(self, filename):
