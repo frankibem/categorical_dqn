@@ -22,4 +22,4 @@ Here are the results from a sample run:
 
 
 ### Atari
-Work in progress
+Not currently planned. If you run it and get results, I'll be happy to include it.
